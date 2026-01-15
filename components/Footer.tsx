@@ -60,7 +60,7 @@ export default function Footer() {
             </Link>
             <p className="text-gray-500 mb-6 max-w-sm text-sm">
               Erstellen Sie professionelle Schweizer Verträge in 30 Sekunden mit KI. 
-              Konform zu OR & ZGB. Sparen Sie Zeit und Geld.
+              Sparen Sie Zeit und Geld.
             </p>
             <div className="flex gap-3">
               <a 
