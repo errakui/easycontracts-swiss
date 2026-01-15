@@ -1,0 +1,171 @@
+// Schema Prisma per easycontracts
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Modello Utente
+model User {
+  id                String         @id @default(cuid())
+  email             String         @unique
+  name              String?
+  password          String?        // Hash della password (opzionale)
+  emailVerified     DateTime?      @map("email_verified")
+  image             String?
+  
+  stripeCustomerId  String?        @unique @map("stripe_customer_id")
+  plan              Plan           @default(FREE)
+  contractsUsed     Int            @default(0) @map("contracts_used")
+  contractsLimit    Int            @default(1) @map("contracts_limit")
+  
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  
+  contracts         Contract[]
+  subscription      Subscription?
+  accounts          Account[]
+  sessions          Session[]
+
+  @@map("users")
+}
+
+// NextAuth Account model
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// NextAuth Session model
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// NextAuth VerificationToken model
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// Enum per i piani
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
+}
+
+// Modello Contratto
+model Contract {
+  id                String       @id @default(cuid())
+  userId            String       @map("user_id")
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type              String
+  typeName          String       @map("type_name")
+  
+  // Dati delle parti
+  party1Name        String       @map("party1_name")
+  party1Email       String?      @map("party1_email")
+  party1Vat         String?      @map("party1_vat")
+  party1Address     String?      @map("party1_address")
+  
+  party2Name        String       @map("party2_name")
+  party2Email       String?      @map("party2_email")
+  party2Vat         String?      @map("party2_vat")
+  party2Address     String?      @map("party2_address")
+  
+  // Dati contratto
+  amount            String
+  paymentTerms      String?      @map("payment_terms")
+  paymentMethod     String?      @map("payment_method")
+  duration          String?
+  startDate         String?      @map("start_date")
+  endDate           String?      @map("end_date")
+  description       String       @db.Text
+  deliverables      String?      @db.Text
+  workLocation      String?      @map("work_location")
+  workHours         String?      @map("work_hours")
+  
+  selectedClauses   String[]     @map("selected_clauses")
+  customRequests    String?      @db.Text @map("custom_requests")
+  
+  // Contenuto generato
+  generatedContent  String       @db.Text @map("generated_content")
+  
+  // Metadata
+  hasWatermark      Boolean      @default(true) @map("has_watermark")
+  status            ContractStatus @default(DRAFT)
+  
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("contracts")
+}
+
+enum ContractStatus {
+  DRAFT
+  FINALIZED
+  SIGNED
+}
+
+// Modello Subscription (abbonamento Stripe)
+model Subscription {
+  id                    String              @id @default(cuid())
+  userId                String              @unique @map("user_id")
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  stripeSubscriptionId  String              @unique @map("stripe_subscription_id")
+  stripePriceId         String              @map("stripe_price_id")
+  stripeProductId       String              @map("stripe_product_id")
+  
+  plan                  Plan
+  status                SubscriptionStatus  @default(ACTIVE)
+  
+  currentPeriodStart    DateTime            @map("current_period_start")
+  currentPeriodEnd      DateTime            @map("current_period_end")
+  cancelAtPeriodEnd     Boolean             @default(false) @map("cancel_at_period_end")
+  
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  UNPAID
+  INCOMPLETE
+}
+
